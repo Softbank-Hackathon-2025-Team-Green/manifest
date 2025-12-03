@@ -12,6 +12,10 @@ patches:
     target:
       kind: Deployment
       name: ingress-nginx-controller
+  - path: service-patch.yaml
+    target:
+      kind: Service
+      name: ingress-nginx-controller
 
 labels:
   - includeSelectors: true

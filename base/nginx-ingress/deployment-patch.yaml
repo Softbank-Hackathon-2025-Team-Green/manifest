@@ -6,19 +6,17 @@ metadata:
 spec:
   template:
     spec:
-      # Use hostNetwork to bind directly to node ports 80 and 443
-      hostNetwork: true
-      # Schedule on specific nodes if needed (optional)
-      # nodeSelector:
-      #   ingress: "true"
+      # hostNetwork removed - using LoadBalancer Service instead
       containers:
         - name: controller
-          ports:
-            # HTTP port
-            - containerPort: 80
-              hostPort: 80
-              protocol: TCP
-            # HTTPS port
-            - containerPort: 443
-              hostPort: 443
-              protocol: TCP
+          args:
+            # Publish LoadBalancer service status
+            - /nginx-ingress-controller
+            - --publish-service=$(POD_NAMESPACE)/ingress-nginx-controller
+            - --election-id=ingress-nginx-leader
+            - --controller-class=k8s.io/ingress-nginx
+            - --ingress-class=nginx
+            - --configmap=$(POD_NAMESPACE)/ingress-nginx-controller
+            - --validating-webhook=:8443
+            - --validating-webhook-certificate=/usr/local/certificates/cert
+            - --validating-webhook-key=/usr/local/certificates/key
