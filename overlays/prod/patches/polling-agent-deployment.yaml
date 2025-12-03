@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: polling-agent
+  namespace: faas-system
+spec:
+  # Increase replicas for production
+  replicas: 2
+  template:
+    spec:
+      containers:
+        - name: polling-agent
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

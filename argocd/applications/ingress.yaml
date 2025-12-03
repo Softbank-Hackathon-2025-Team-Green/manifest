@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ingress
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: knative-faas-platform
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:Softbank-Hackathon-2025-Team-Green/manifest.git
+    targetRevision: HEAD
+    path: ingress
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: knative-serving
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

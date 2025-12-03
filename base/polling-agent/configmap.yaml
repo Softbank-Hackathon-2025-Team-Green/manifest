@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: polling-agent-config
+  namespace: faas-system
+  labels:
+    app: polling-agent
+    app.kubernetes.io/name: polling-agent
+    app.kubernetes.io/part-of: knative-faas-platform
+data:
+  SQS_QUEUE_URL: "https://sqs.ap-northeast-2.amazonaws.com/123456789012/your-queue-name"
+  AWS_REGION: "ap-northeast-2"
+
+  # Knative Configuration
+  TARGET_NAMESPACE: "user-functions"
+
+  # Polling Configuration
+  POLLING_INTERVAL: "10"  # seconds
+  MAX_MESSAGES: "10"      # max messages per poll
+  WAIT_TIME: "20"         # long polling wait time in seconds
+
+  # Function Configuration
+  DEFAULT_IMAGE: "gcr.io/knative-samples/helloworld-go"
+  DEFAULT_MEMORY: "256Mi"
+  DEFAULT_CPU: "100m"

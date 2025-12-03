@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingress-nginx-controller
+  namespace: ingress-nginx
+spec:
+  template:
+    spec:
+      # Use hostNetwork to bind directly to node ports 80 and 443
+      hostNetwork: true
+      # Schedule on specific nodes if needed (optional)
+      # nodeSelector:
+      #   ingress: "true"
+      containers:
+        - name: controller
+          ports:
+            # HTTP port
+            - containerPort: 80
+              hostPort: 80
+              protocol: TCP
+            # HTTPS port
+            - containerPort: 443
+              hostPort: 443
+              protocol: TCP

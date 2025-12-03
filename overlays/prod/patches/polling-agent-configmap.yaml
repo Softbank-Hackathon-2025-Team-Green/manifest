@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: polling-agent-config
+  namespace: faas-system
+data:
+  # Production environment specific SQS configuration
+  SQS_QUEUE_URL: "https://sqs.ap-northeast-2.amazonaws.com/123456789012/prod-faas-queue"
+  AWS_REGION: "ap-northeast-2"
+
+  # Production environment polling configuration
+  POLLING_INTERVAL: "10"  # Standard polling for prod
+  MAX_MESSAGES: "10"
+  WAIT_TIME: "20"

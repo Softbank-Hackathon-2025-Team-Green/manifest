@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base/knative-serving
+  - ../../base/kourier
+  - ../../base/nginx-ingress
+  - ../../base/namespaces
+  - ../../base/polling-agent
+  - ../../ingress
+
+patchesStrategicMerge:
+  - patches/polling-agent-configmap.yaml
+  - patches/polling-agent-deployment.yaml
+
+namespace: ""  # Leave empty to use namespaces from resources
