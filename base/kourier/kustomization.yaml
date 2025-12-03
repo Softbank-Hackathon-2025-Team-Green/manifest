@@ -6,9 +6,15 @@ namespace: knative-serving
 resources:
   - https://github.com/knative/net-kourier/releases/download/knative-v1.20.0/kourier.yaml
 
-patchesStrategicMerge:
-  - config-network.yaml
-  - kourier-service-patch.yaml
+patches:
+  - path: config-network.yaml
+    target:
+      kind: ConfigMap
+      name: config-network
+  - path: kourier-service-patch.yaml
+    target:
+      kind: Service
+      name: kourier
 
 labels:
   - includeSelectors: true

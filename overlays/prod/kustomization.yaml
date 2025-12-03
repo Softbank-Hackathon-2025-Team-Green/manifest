@@ -9,8 +9,16 @@ resources:
   - ../../base/polling-agent
   - ../../ingress
 
-patchesStrategicMerge:
-  - patches/polling-agent-configmap.yaml
-  - patches/polling-agent-deployment.yaml
+patches:
+  - path: patches/polling-agent-configmap.yaml
+    target:
+      kind: ConfigMap
+      name: polling-agent-config
+      namespace: faas-system
+  - path: patches/polling-agent-deployment.yaml
+    target:
+      kind: Deployment
+      name: polling-agent
+      namespace: faas-system
 
 namespace: ""  # Leave empty to use namespaces from resources

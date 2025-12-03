@@ -7,8 +7,11 @@ resources:
   - namespace.yaml
   - https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.1/deploy/static/provider/baremetal/deploy.yaml
 
-patchesStrategicMerge:
-  - deployment-patch.yaml
+patches:
+  - path: deployment-patch.yaml
+    target:
+      kind: Deployment
+      name: ingress-nginx-controller
 
 labels:
   - includeSelectors: true
