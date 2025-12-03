@@ -4,8 +4,8 @@ kind: Kustomization
 namespace: knative-serving
 
 resources:
-  # namespace.yaml 제거 - serving-core.yaml이 이미 namespace를 포함
-  - https://github.com/knative/serving/releases/download/knative-v1.20.0/serving-crds.yaml
+  # CRDs는 별도로 설치: kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.20.0/serving-crds.yaml
+  # Core만 kustomize로 관리
   - https://github.com/knative/serving/releases/download/knative-v1.20.0/serving-core.yaml
 
 patches:
