@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: knative-ingress
+  namespace: knative-serving
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$4
+    nginx.ingress.kubernetes.io/upstream-vhost: "$1-$2.user-functions.svc.cluster.local"
+
+    # 기타 설정
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          # [핵심 3] 정규표현식 변경
+          # /([^/]+)  -> $1: 첫 번째 경로 (예: poc)
+          # /([^/]+)  -> $2: 두 번째 경로 (예: test)
+          # (/?)(.*)  -> $3: 슬래시(옵션), $4: 나머지 경로 (예: api/hello)
+          - path: /([^/]+)/([^/]+)(/?)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: kourier-internal
+                port:
+                  number: 80

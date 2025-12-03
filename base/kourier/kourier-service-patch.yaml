@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kourier
+  namespace: knative-serving
+spec:
+  # Change from LoadBalancer to ClusterIP since we'll route through Nginx Ingress
+  type: ClusterIP
+  ports:
+    - name: http2
+      port: 80
+      protocol: TCP
+      targetPort: 8080
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: 8443

@@ -1,0 +1,58 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: polling-agent-role
+  labels:
+    app: polling-agent
+    app.kubernetes.io/name: polling-agent
+    app.kubernetes.io/part-of: knative-faas-platform
+rules:
+  # Knative Service CRD permissions
+  - apiGroups:
+      - serving.knative.dev
+    resources:
+      - services
+      - configurations
+      - revisions
+      - routes
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  # Event permissions for debugging
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+  # Namespace read permission
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - get
+      - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: polling-agent-rolebinding
+  labels:
+    app: polling-agent
+    app.kubernetes.io/name: polling-agent
+    app.kubernetes.io/part-of: knative-faas-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: polling-agent-role
+subjects:
+  - kind: ServiceAccount
+    name: polling-agent
+    namespace: faas-system

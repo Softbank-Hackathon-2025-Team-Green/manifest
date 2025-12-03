@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ecr-token-refresher
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: knative-faas-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:Softbank-Hackathon-2025-Team-Green/manifest.git
+    targetRevision: HEAD
+    path: base/ecr-token-refresher
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: user-functions
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+  ignoreDifferences:
+    # Job은 완료되면 변경되므로 무시
+    - group: batch
+      kind: Job
+      jsonPointers:
+        - /status

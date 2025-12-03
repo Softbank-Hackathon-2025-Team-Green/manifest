@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: user-functions
+
+resources:
+  - serviceaccount.yaml
+  - rbac.yaml
+  - cronjob.yaml
+  - init-job.yaml
+
+labels:
+  - includeSelectors: true
+    pairs:
+      app.kubernetes.io/part-of: knative-faas-platform

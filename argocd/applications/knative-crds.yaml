@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: knative-crds
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: knative-faas-platform
+  annotations:
+    # CRD는 다른 리소스보다 먼저 설치되어야 함
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:Softbank-Hackathon-2025-Team-Green/manifest.git
+    targetRevision: HEAD
+    path: base/knative-crds
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: knative-serving
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - Replace=true  # CRD 업데이트 시 Replace 사용
+    automated:
+      prune: false  # CRD는 자동 삭제하지 않음 (위험)
+      selfHeal: true
+  info:
+    - name: Description
+      value: "Knative Serving CRDs - Must be installed before serving-core"

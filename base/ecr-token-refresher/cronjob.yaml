@@ -1,0 +1,78 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ecr-token-refresh
+  namespace: user-functions
+  labels:
+    app: ecr-token-refresher
+    app.kubernetes.io/name: ecr-token-refresher
+    app.kubernetes.io/part-of: knative-faas-platform
+spec:
+  schedule: "0 */10 * * *"  # 10시간마다 실행
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    metadata:
+      labels:
+        app: ecr-token-refresher
+    spec:
+      template:
+        metadata:
+          labels:
+            app: ecr-token-refresher
+        spec:
+          serviceAccountName: ecr-refresher
+          containers:
+          - name: refresher
+            image: amazon/aws-cli:latest
+            env:
+              # AWS Credentials (Secret에서 가져옴)
+              - name: AWS_ACCESS_KEY_ID
+                valueFrom:
+                  secretKeyRef:
+                    name: aws-credentials
+                    key: AWS_ACCESS_KEY_ID
+              - name: AWS_SECRET_ACCESS_KEY
+                valueFrom:
+                  secretKeyRef:
+                    name: aws-credentials
+                    key: AWS_SECRET_ACCESS_KEY
+              - name: AWS_REGION
+                value: "ap-northeast-2"
+              - name: ECR_REGISTRY
+                value: "900253478827.dkr.ecr.ap-northeast-2.amazonaws.com"
+              - name: ECR_REPO
+                value: "buildpack-test"
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "=== ECR Token Refresh Started ==="
+              echo "Time: $(date)"
+
+              # 1. ECR 토큰 발급
+              echo "Getting ECR login token..."
+              TOKEN=$(aws ecr get-login-password --region ${AWS_REGION})
+
+              # 2. 기존 Secret 삭제 (에러 무시)
+              echo "Removing old secret..."
+              kubectl delete secret ecr-secret -n user-functions --ignore-not-found=true
+
+              # 3. 새 Secret 생성
+              echo "Creating new secret..."
+              kubectl create secret docker-registry ecr-secret \
+                --docker-server=${ECR_REGISTRY} \
+                --docker-username=AWS \
+                --docker-password=${TOKEN} \
+                -n user-functions
+
+              # 4. default ServiceAccount에 imagePullSecrets 추가
+              echo "Patching default ServiceAccount..."
+              kubectl patch serviceaccount default \
+                -p '{"imagePullSecrets": [{"name": "ecr-secret"}]}' \
+                -n user-functions
+
+              echo "=== ECR Token Refresh Completed ==="
+              echo "Secret 'ecr-secret' has been updated successfully!"
+          restartPolicy: OnFailure

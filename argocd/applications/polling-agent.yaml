@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: polling-agent
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: knative-faas-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:Softbank-Hackathon-2025-Team-Green/manifest.git
+    targetRevision: HEAD
+    path: base/polling-agent
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: faas-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+  ignoreDifferences:
+    # Ignore AWS credentials secret since it's created manually
+    - group: ""
+      kind: Secret
+      name: aws-credentials
+      jsonPointers:
+        - /data

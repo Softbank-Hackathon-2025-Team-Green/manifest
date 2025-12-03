@@ -1,0 +1,78 @@
+# CronJob 생성 직후 즉시 실행할 초기 Job
+# 이 Job은 한 번만 실행되며, CronJob이 스케줄에 따라 실행되기 전에
+# ECR Secret을 미리 생성합니다.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ecr-token-refresh-init
+  namespace: user-functions
+  labels:
+    app: ecr-token-refresher
+    app.kubernetes.io/name: ecr-token-refresher
+    app.kubernetes.io/part-of: knative-faas-platform
+    job-type: init
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  ttlSecondsAfterFinished: 300  # 5분 후 자동 삭제
+  template:
+    metadata:
+      labels:
+        app: ecr-token-refresher
+        job-type: init
+    spec:
+      serviceAccountName: ecr-refresher
+      containers:
+      - name: refresher
+        image: amazon/aws-cli:latest
+        env:
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: aws-credentials
+                key: AWS_ACCESS_KEY_ID
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: aws-credentials
+                key: AWS_SECRET_ACCESS_KEY
+          - name: AWS_REGION
+            value: "ap-northeast-2"
+          - name: ECR_REGISTRY
+            value: "900253478827.dkr.ecr.ap-northeast-2.amazonaws.com"
+          - name: ECR_REPO
+            value: "buildpack-test"
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          echo "=== Initial ECR Token Creation ==="
+          echo "Time: $(date)"
+
+          # ECR 토큰 발급
+          echo "Getting ECR login token..."
+          TOKEN=$(aws ecr get-login-password --region ${AWS_REGION})
+
+          # 기존 Secret 삭제
+          echo "Removing old secret..."
+          kubectl delete secret ecr-secret -n user-functions --ignore-not-found=true
+
+          # 새 Secret 생성
+          echo "Creating new secret..."
+          kubectl create secret docker-registry ecr-secret \
+            --docker-server=${ECR_REGISTRY} \
+            --docker-username=AWS \
+            --docker-password=${TOKEN} \
+            -n user-functions
+
+          # default ServiceAccount에 imagePullSecrets 추가
+          echo "Patching default ServiceAccount..."
+          kubectl patch serviceaccount default \
+            -p '{"imagePullSecrets": [{"name": "ecr-secret"}]}' \
+            -n user-functions
+
+          echo "=== Initial Setup Completed ==="
+      restartPolicy: Never
+  backoffLimit: 3

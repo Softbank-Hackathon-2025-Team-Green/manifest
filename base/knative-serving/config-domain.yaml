@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-domain
+  namespace: knative-serving
+data:
+  # 내부에서 추가 라우팅을 할 필요가 없어 디폴트 서비스 라우팅 사용
+  # Format: <service-name>.<namespace>.svc.cluster.local
+  svc.cluster.local: ""

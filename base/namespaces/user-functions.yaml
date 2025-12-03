@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: user-functions
+  labels:
+    app.kubernetes.io/name: user-functions
+    app.kubernetes.io/part-of: knative-faas-platform
+    serving.knative.dev/release: devel
