@@ -39,6 +39,6 @@ spec:
             pathType: ImplementationSpecific
             backend:
               service:
-                name: kourier
+                name: kourier-internal
                 port:
                   number: 80
