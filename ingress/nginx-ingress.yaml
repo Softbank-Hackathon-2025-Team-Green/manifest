@@ -3,26 +3,13 @@ kind: Ingress
 metadata:
   name: knative-ingress
   namespace: knative-serving
-  labels:
-    app.kubernetes.io/name: knative-ingress
-    app.kubernetes.io/part-of: knative-faas-platform
   annotations:
-    # Use nginx ingress controller
     kubernetes.io/ingress.class: "nginx"
-
-    # Path-based routing with regex
-    # Capture pattern: /{userid}/{custompath}
     nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$4
+    nginx.ingress.kubernetes.io/upstream-vhost: "$1-$2.user-functions.svc.cluster.local"
 
-    # Rewrite target path
-    # /user123/api/hello -> /
-    nginx.ingress.kubernetes.io/rewrite-target: /$3
-
-    # Set upstream Host header to route to correct Knative service
-    # Host: {userid}.user-functions.svc.cluster.local
-    nginx.ingress.kubernetes.io/upstream-vhost: "$1.user-functions.svc.cluster.local"
-
-    # Additional configurations
+    # 기타 설정
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
@@ -33,9 +20,11 @@ spec:
   rules:
     - http:
         paths:
-          # Pattern: /{userid}/{custompath}
-          # $1 = userid, $2 = /, $3 = custompath
-          - path: /([^/]+)(/?)(.*)
+          # [핵심 3] 정규표현식 변경
+          # /([^/]+)  -> $1: 첫 번째 경로 (예: poc)
+          # /([^/]+)  -> $2: 두 번째 경로 (예: test)
+          # (/?)(.*)  -> $3: 슬래시(옵션), $4: 나머지 경로 (예: api/hello)
+          - path: /([^/]+)/([^/]+)(/?)(.*)
             pathType: ImplementationSpecific
             backend:
               service:
