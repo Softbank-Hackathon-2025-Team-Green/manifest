@@ -16,7 +16,7 @@ metadata:
 
     # Rewrite target path
     # /user123/api/hello -> /
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/rewrite-target: /$3
 
     # Set upstream Host header to route to correct Knative service
     # Host: {userid}.user-functions.svc.cluster.local
@@ -34,8 +34,8 @@ spec:
     - http:
         paths:
           # Pattern: /{userid}/{custompath}
-          # $1 = userid, $2 = custompath (including leading /)
-          - path: /([^/]+)(/|$)(.*)
+          # $1 = userid, $2 = /, $3 = custompath
+          - path: /([^/]+)(/?)(.*)
             pathType: ImplementationSpecific
             backend:
               service:
