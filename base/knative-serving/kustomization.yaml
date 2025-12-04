@@ -13,6 +13,14 @@ patches:
     target:
       kind: ConfigMap
       name: config-domain
+  - patch: |-
+      - op: add
+        path: /data/runtime-class-name
+        value: |
+          gvisor: {}
+    target:
+      kind: ConfigMap
+      name: config-deployment
 
 # labels 제거 - Deployment selector는 immutable이므로 label 추가 시 충돌 발생
 # labels:

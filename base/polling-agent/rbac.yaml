@@ -1,58 +1,36 @@
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: Role
 metadata:
-  name: polling-agent-role
+  name: polling-agent
+  namespace: user-functions
   labels:
     app: polling-agent
     app.kubernetes.io/name: polling-agent
     app.kubernetes.io/part-of: knative-faas-platform
 rules:
-  # Knative Service CRD permissions
-  - apiGroups:
-      - serving.knative.dev
-    resources:
-      - services
-      - configurations
-      - revisions
-      - routes
-    verbs:
-      - get
-      - list
-      - watch
-      - create
-      - update
-      - patch
-      - delete
-  # Event permissions for debugging
-  - apiGroups:
-      - ""
-    resources:
-      - events
-    verbs:
-      - create
-      - patch
-  # Namespace read permission
-  - apiGroups:
-      - ""
-    resources:
-      - namespaces
-    verbs:
-      - get
-      - list
+  # Knative Service 생성/업데이트/조회 권한
+  - apiGroups: ["serving.knative.dev"]
+    resources: ["services"]
+    verbs: ["get", "list", "create", "update", "patch"]
+  # Knative Service status 조회 권한
+  - apiGroups: ["serving.knative.dev"]
+    resources: ["services/status"]
+    verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
-  name: polling-agent-rolebinding
+  name: polling-agent
+  namespace: user-functions
   labels:
     app: polling-agent
     app.kubernetes.io/name: polling-agent
     app.kubernetes.io/part-of: knative-faas-platform
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: polling-agent-role
+  kind: Role
+  name: polling-agent
 subjects:
   - kind: ServiceAccount
     name: polling-agent
-    namespace: faas-system
+    namespace: user-functions

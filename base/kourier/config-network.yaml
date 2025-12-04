@@ -4,5 +4,4 @@ metadata:
   name: config-network
   namespace: knative-serving
 data:
-  # Set Kourier as the ingress class of Knative Serving
   ingress-class: kourier.ingress.networking.knative.dev

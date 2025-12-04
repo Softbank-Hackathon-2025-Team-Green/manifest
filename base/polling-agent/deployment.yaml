@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: polling-agent
-  namespace: faas-system
+  namespace: user-functions
   labels:
     app: polling-agent
     app.kubernetes.io/name: polling-agent
@@ -16,73 +16,15 @@ spec:
     metadata:
       labels:
         app: polling-agent
-        app.kubernetes.io/name: polling-agent
-        app.kubernetes.io/part-of: knative-faas-platform
     spec:
       serviceAccountName: polling-agent
       containers:
         - name: polling-agent
-          # Placeholder image - replace with actual polling agent image
-          image: your-registry/polling-agent:latest
+          image: 900253478827.dkr.ecr.ap-northeast-2.amazonaws.com/polling-agent:latest
           imagePullPolicy: Always
-          env:
-            # AWS Credentials from Secret (must be created manually)
-            - name: AWS_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: aws-credentials
-                  key: AWS_ACCESS_KEY_ID
-            - name: AWS_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: aws-credentials
-                  key: AWS_SECRET_ACCESS_KEY
-            # Configuration from ConfigMap
-            - name: SQS_QUEUE_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: polling-agent-config
-                  key: SQS_QUEUE_URL
-            - name: AWS_REGION
-              valueFrom:
-                configMapKeyRef:
-                  name: polling-agent-config
-                  key: AWS_REGION
-            - name: TARGET_NAMESPACE
-              valueFrom:
-                configMapKeyRef:
-                  name: polling-agent-config
-                  key: TARGET_NAMESPACE
-            - name: POLLING_INTERVAL
-              valueFrom:
-                configMapKeyRef:
-                  name: polling-agent-config
-                  key: POLLING_INTERVAL
-            - name: MAX_MESSAGES
-              valueFrom:
-                configMapKeyRef:
-                  name: polling-agent-config
-                  key: MAX_MESSAGES
-            - name: WAIT_TIME
-              valueFrom:
-                configMapKeyRef:
-                  name: polling-agent-config
-                  key: WAIT_TIME
-            - name: DEFAULT_IMAGE
-              valueFrom:
-                configMapKeyRef:
-                  name: polling-agent-config
-                  key: DEFAULT_IMAGE
-            - name: DEFAULT_MEMORY
-              valueFrom:
-                configMapKeyRef:
-                  name: polling-agent-config
-                  key: DEFAULT_MEMORY
-            - name: DEFAULT_CPU
-              valueFrom:
-                configMapKeyRef:
-                  name: polling-agent-config
-                  key: DEFAULT_CPU
+          envFrom:
+            - configMapRef:
+                name: polling-agent-config
           resources:
             requests:
               memory: "128Mi"
@@ -90,10 +32,3 @@ spec:
             limits:
               memory: "256Mi"
               cpu: "200m"
-          securityContext:
-            runAsNonRoot: true
-            runAsUser: 1000
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
