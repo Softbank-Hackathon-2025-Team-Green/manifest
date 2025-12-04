@@ -20,3 +20,5 @@ data:
 
   # Polling Configuration
   POLL_INTERVAL: "10"  # seconds
+  
+  PYTHONUNBUFFERED: "1"
