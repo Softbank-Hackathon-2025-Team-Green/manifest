@@ -26,8 +26,6 @@ spec:
           - name: refresher
             image: amazon/aws-cli:latest
             env:
-              # AWS Credentials는 IAM Role 사용 (EC2 Instance Role)
-              # Secret 불필요 - Node의 IAM Role로 ECR 접근
               - name: AWS_REGION
                 value: "ap-northeast-2"
               - name: ECR_REGISTRY
