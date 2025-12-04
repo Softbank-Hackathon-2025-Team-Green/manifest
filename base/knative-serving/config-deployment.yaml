@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-deployment
+  namespace: knative-serving
+data:
+  runtime-class-name: |
+    "":
+      selector:
+        no-isolation-here: "true"
+    gvisor: {}
