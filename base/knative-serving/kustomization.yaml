@@ -17,9 +17,6 @@ patches:
       - op: add
         path: /data/runtime-class-name
         value: |
-          "":
-            selector:
-              no-isolation-here: "true"
           gvisor: {}
     target:
       kind: ConfigMap
