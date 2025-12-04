@@ -17,7 +17,8 @@ patches:
       kind: Service
       name: ingress-nginx-controller
 
-labels:
-  - includeSelectors: true
-    pairs:
-      app.kubernetes.io/part-of: knative-faas-platform
+# labels 제거 - Deployment selector는 immutable
+# labels:
+#   - includeSelectors: false
+#     pairs:
+#       app.kubernetes.io/part-of: knative-faas-platform

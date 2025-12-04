@@ -14,7 +14,8 @@ patches:
       kind: ConfigMap
       name: config-domain
 
-labels:
-  - includeSelectors: true
-    pairs:
-      app.kubernetes.io/part-of: knative-faas-platform
+# labels 제거 - Deployment selector는 immutable이므로 label 추가 시 충돌 발생
+# labels:
+#   - includeSelectors: false
+#     pairs:
+#       app.kubernetes.io/part-of: knative-faas-platform

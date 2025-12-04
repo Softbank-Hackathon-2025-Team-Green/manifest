@@ -9,7 +9,8 @@ resources:
   - cronjob.yaml
   - init-job.yaml
 
-labels:
-  - includeSelectors: true
-    pairs:
-      app.kubernetes.io/part-of: knative-faas-platform
+# labels 제거 - Job/CronJob selector는 immutable
+# labels:
+#   - includeSelectors: false
+#     pairs:
+#       app.kubernetes.io/part-of: knative-faas-platform
