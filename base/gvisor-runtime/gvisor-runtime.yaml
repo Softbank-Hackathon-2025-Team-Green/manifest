@@ -1,0 +1,5 @@
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: gvisor  # 유저가 YAML에 적을 이름
+handler: runsc  # 워커노드 config에 적힌 이름
