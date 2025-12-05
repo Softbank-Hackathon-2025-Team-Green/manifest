@@ -76,20 +76,22 @@ data:
   filter-rewrite-tag.conf: |
     # 인프라 로그: ingress-nginx와 kourier만
     [FILTER]
-        Name                grep
+        Name                rewrite_tag
         Match               kube.*
-        Regex               kubernetes_namespace_name ^(ingress-nginx|knative-serving)$
-
-    [FILTER]
-        Name                grep
-        Match               kube.*
-        Regex               kubernetes_pod_name (ingress-nginx-controller|3scale-kourier-gateway)
+        Rule                $kubernetes['namespace_name'] ^ingress-nginx$ infra.logs false
+        Emitter_Name        ingress_rewriter
 
     [FILTER]
         Name                rewrite_tag
         Match               kube.*
-        Rule                $kubernetes['namespace_name'] ^(ingress-nginx|knative-serving)$ infra.logs false
-        Emitter_Name        infra_rewriter
+        Rule                $kubernetes['namespace_name'] ^knative-serving$ infra.logs false
+        Emitter_Name        kourier_rewriter
+
+    # infra.logs 중에서 ingress-nginx-controller 또는 3scale-kourier-gateway만 필터링
+    [FILTER]
+        Name                grep
+        Match               infra.logs
+        Regex               kubernetes_pod_name (ingress-nginx-controller|3scale-kourier-gateway)
 
     # 유저 앱 로그: user-functions 네임스페이스의 Knative Service만
     [FILTER]
