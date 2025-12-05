@@ -8,10 +8,10 @@ metadata:
     app.kubernetes.io/name: polling-agent
     app.kubernetes.io/part-of: knative-faas-platform
 rules:
-  # Knative Service 생성/업데이트/조회 권한
+  # Knative Service 생성/업데이트/조회/삭제 권한
   - apiGroups: ["serving.knative.dev"]
     resources: ["services"]
-    verbs: ["get", "list", "create", "update", "patch"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
   # Knative Service status 조회 권한
   - apiGroups: ["serving.knative.dev"]
     resources: ["services/status"]

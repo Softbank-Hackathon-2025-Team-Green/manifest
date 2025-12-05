@@ -10,7 +10,8 @@ metadata:
 spec:
   schedule: "0 */10 * * *"  # 10시간마다 실행
   successfulJobsHistoryLimit: 3
-  failedJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1  # 실패한 Job은 1개만 보관
+  startingDeadlineSeconds: 300  # 5분 내에 시작 안되면 skip
   jobTemplate:
     metadata:
       labels:
