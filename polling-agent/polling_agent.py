@@ -63,8 +63,27 @@ def create_knative_service(user_id, function_id, custom_routes, ecr_image):
     - 없으면 새로 생성
     - 이름: {userid}-{customroutes}
     - 레이블: functionId, userId
+    - 반환: (성공여부, 현재_revision_name)
     """
     service_name = f"{user_id}-{custom_routes}".lower()
+
+    # 기존 서비스의 최신 Revision 확인
+    old_revision = None
+    try:
+        existing_service = k8s_custom.get_namespaced_custom_object(
+            group="serving.knative.dev",
+            version="v1",
+            namespace=KNATIVE_NAMESPACE,
+            plural="services",
+            name=service_name
+        )
+        old_revision = existing_service.get('status', {}).get('latestCreatedRevisionName')
+        print(f"  Existing service found. Current revision: {old_revision}")
+    except ApiException as e:
+        if e.status == 404:
+            print(f"  No existing service found.")
+        else:
+            print(f"  Error checking existing service: {e}")
 
     knative_service = {
         "apiVersion": "serving.knative.dev/v1",
@@ -114,7 +133,7 @@ def create_knative_service(user_id, function_id, custom_routes, ecr_image):
             body=knative_service
         )
         print(f"✓ Knative Service '{service_name}' created/updated successfully")
-        return True
+        return True, old_revision
     except ApiException as e:
         if e.status == 404:
             # 리소스가 없으면 생성
@@ -128,13 +147,76 @@ def create_knative_service(user_id, function_id, custom_routes, ecr_image):
                     body=knative_service
                 )
                 print(f"✓ Knative Service '{service_name}' created successfully")
-                return True
+                return True, None
             except Exception as create_error:
                 print(f"✗ Failed to create Knative Service: {create_error}")
-                return False
+                return False, None
         else:
             print(f"✗ Failed to patch Knative Service: {e}")
-            return False
+            return False, None
+
+def wait_for_new_revision_ready(service_name, old_revision, timeout=20):
+    """
+    새로운 Revision이 생성되고 Ready 상태가 될 때까지 대기
+    - old_revision: 이전 Revision 이름 (없으면 None)
+    - 새 Revision이 생성되고 Ready 상태가 되면 True 반환
+    - timeout 초과하거나 실패하면 False 반환
+    """
+    start_time = time.time()
+    check_count = 0
+
+    print(f"  Waiting for new Revision to be ready (timeout: {timeout}s)")
+    if old_revision:
+        print(f"  Old revision: {old_revision}")
+
+    while time.time() - start_time < timeout:
+        check_count += 1
+        elapsed = int(time.time() - start_time)
+        print(f"  [Check #{check_count}] Elapsed: {elapsed}s / {timeout}s")
+
+        try:
+            service = k8s_custom.get_namespaced_custom_object(
+                group="serving.knative.dev",
+                version="v1",
+                namespace=KNATIVE_NAMESPACE,
+                plural="services",
+                name=service_name
+            )
+
+            latest_created = service.get('status', {}).get('latestCreatedRevisionName')
+            latest_ready = service.get('status', {}).get('latestReadyRevisionName')
+
+            # 새 Revision이 생성되었는지 확인
+            if latest_created and latest_created != old_revision:
+                print(f"  New revision created: {latest_created}")
+
+                # 새 Revision이 Ready 상태인지 확인
+                if latest_ready == latest_created:
+                    print(f"✓ New revision '{latest_created}' is Ready")
+                    return True
+                else:
+                    print(f"  New revision '{latest_created}' not ready yet (latestReady: {latest_ready})")
+
+                    # ConfigurationsReady condition 체크
+                    conditions = service.get('status', {}).get('conditions', [])
+                    config_ready = next((c for c in conditions if c['type'] == 'ConfigurationsReady'), None)
+                    if config_ready and config_ready.get('status') == 'False':
+                        reason = config_ready.get('reason', 'Unknown')
+                        message = config_ready.get('message', '')
+                        print(f"  Configuration not ready - Reason: {reason}, Message: {message}")
+            else:
+                if not latest_created:
+                    print(f"  No revision created yet")
+                else:
+                    print(f"  Waiting for new revision (current: {latest_created})")
+
+        except ApiException as e:
+            print(f"  Error checking service status: {e}")
+
+        time.sleep(2)
+
+    print(f"✗ Timeout: New revision not ready after {timeout}s")
+    return False
 
 def wait_for_revision_ready(service_name, timeout=60):
     """
@@ -324,7 +406,8 @@ def process_message(message):
 
         # 1. Knative Service 생성
         print("[STEP 1] Creating Knative Service...")
-        if not create_knative_service(user_id, function_id, custom_routes, ecr_image):
+        success, old_revision = create_knative_service(user_id, function_id, custom_routes, ecr_image)
+        if not success:
             print("[STEP 1] Failed to create Knative Service, sending failure to Amplify...")
             send_result_to_amplify(
                 user_id, function_id, custom_routes,
@@ -334,13 +417,27 @@ def process_message(message):
             return False
         print("[STEP 1] Knative Service creation completed")
 
-        # 2. URL 생성 (Knative 기본 패턴)
+        # 2. 새 Revision Ready 대기
+        print("[STEP 2] Waiting for new Revision to be ready...")
         service_name = f"{user_id}-{custom_routes}".lower()
-        url = f"http://{service_name}.{KNATIVE_NAMESPACE}.svc.cluster.local"
-        print(f"[STEP 2] Service URL: {url}")
+        revision_ready = wait_for_new_revision_ready(service_name, old_revision, timeout=20)
 
-        # 3. Amplify에 성공 전송
-        print("[STEP 3] Sending success notification to Amplify...")
+        if not revision_ready:
+            print("[STEP 2] New revision not ready (timeout), sending failure to Amplify...")
+            send_result_to_amplify(
+                user_id, function_id, custom_routes,
+                success=False,
+                message="Deployment failed: New revision not ready (image pull error, crash, or configuration issue)"
+            )
+            return False
+        print("[STEP 2] New revision is ready")
+
+        # 3. URL 생성 (Knative 기본 패턴)
+        url = f"http://{service_name}.{KNATIVE_NAMESPACE}.svc.cluster.local"
+        print(f"[STEP 3] Service URL: {url}")
+
+        # 4. Amplify에 성공 전송
+        print("[STEP 4] Sending success notification to Amplify...")
         result = send_result_to_amplify(
             user_id, function_id, custom_routes,
             success=True,
@@ -349,9 +446,9 @@ def process_message(message):
             image_digest=ecr_image
         )
         if result:
-            print("[STEP 3] Success notification sent to Amplify")
+            print("[STEP 4] Success notification sent to Amplify")
         else:
-            print("[STEP 3] Failed to send notification to Amplify (but deployment succeeded)")
+            print("[STEP 4] Failed to send notification to Amplify (but deployment succeeded)")
 
         print("[COMPLETE] All steps finished successfully\n")
         return True
