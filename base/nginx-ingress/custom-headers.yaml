@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: custom-headers
+  namespace: ingress-nginx
+data:
+  # X-Request-ID를 upstream(Kourier/Knative)으로 전달
+  X-Request-ID: "$req_id"

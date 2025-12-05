@@ -6,6 +6,7 @@ namespace: ingress-nginx
 resources:
   # namespace.yaml removed - baremetal deploy.yaml already includes ingress-nginx namespace
   - https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.1/deploy/static/provider/baremetal/deploy.yaml
+  - custom-headers.yaml
 
 patches:
   - path: deployment-patch.yaml
@@ -15,6 +16,10 @@ patches:
   - path: service-patch.yaml
     target:
       kind: Service
+      name: ingress-nginx-controller
+  - path: configmap-patch.yaml
+    target:
+      kind: ConfigMap
       name: ingress-nginx-controller
 
 # labels 제거 - Deployment selector는 immutable

@@ -13,6 +13,10 @@ patches:
     target:
       kind: ConfigMap
       name: config-domain
+  - path: config-tracing.yaml
+    target:
+      kind: ConfigMap
+      name: config-tracing
   - patch: |-
       - op: add
         path: /data/runtime-class-name

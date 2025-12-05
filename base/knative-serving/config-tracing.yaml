@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-tracing
+  namespace: knative-serving
+data:
+  # X-Request-ID를 활성화하여 Kourier에서 Knative 서비스로 전파
+  # Zipkin 등의 분산 추적 시스템 없이도 X-Request-ID만 전파할 수 있음
+  backend: "none"
+  # X-Request-ID 헤더를 보존하고 전파
+  request-id-header: "X-Request-ID"

@@ -44,7 +44,7 @@ data:
 
     @INCLUDE input-kubernetes.conf
     @INCLUDE filter-kubernetes.conf
-    @INCLUDE filter-knative.conf 
+    @INCLUDE filter-rewrite-tag.conf
     @INCLUDE output-s3.conf
 
   # [설정 2] 로그 수집 (Input)
@@ -59,8 +59,7 @@ data:
         Skip_Long_Lines   On
         Refresh_Interval  10
 
-  # [설정 3] 메타데이터 부착 및 필터링 (Filter)
-  # ★ 수정됨: kube-system 제외 로직 추가
+  # [설정 3] 메타데이터 부착 (Filter)
   filter-kubernetes.conf: |
     [FILTER]
         Name                kubernetes
@@ -73,31 +72,61 @@ data:
         K8S-Logging.Parser  On
         K8S-Logging.Exclude Off
 
-    # user-functions 네임스페이스 로그만 수집
+  # [설정 4] Rewrite Tag - 네임스페이스 기반 로그 분리
+  filter-rewrite-tag.conf: |
+    # 인프라 로그: ingress-nginx와 kourier만
     [FILTER]
         Name                grep
         Match               kube.*
-        Regex               kubernetes_namespace_name user-functions
+        Regex               kubernetes_namespace_name ^(ingress-nginx|knative-serving)$
 
-  filter-knative.conf: |
-    # serving.knative.dev/service 레이블이 존재하는 로그만 남김
     [FILTER]
-        Name              grep
-        Match             kube.*
-        Regex             kubernetes_labels_serving.knative.dev/service .
+        Name                grep
+        Match               kube.*
+        Regex               kubernetes_pod_name (ingress-nginx-controller|3scale-kourier-gateway)
 
-  # [설정 4] S3 전송 (Output)
+    [FILTER]
+        Name                rewrite_tag
+        Match               kube.*
+        Rule                $kubernetes['namespace_name'] ^(ingress-nginx|knative-serving)$ infra.logs false
+        Emitter_Name        infra_rewriter
+
+    # 유저 앱 로그: user-functions 네임스페이스의 Knative Service만
+    [FILTER]
+        Name                rewrite_tag
+        Match               kube.*
+        Rule                $kubernetes['namespace_name'] ^user-functions$ app.logs false
+        Emitter_Name        app_rewriter
+
+    # app.logs 중에서 serving.knative.dev/service 레이블이 있는 것만 필터링
+    [FILTER]
+        Name                grep
+        Match               app.logs
+        Regex               kubernetes_labels_serving.knative.dev/service .
+
+  # [설정 5] S3 전송 (Output)
   output-s3.conf: |
+    # 인프라 로그 → cutty-x-infra-log/ingress/ 폴더
     [OUTPUT]
         Name                         s3
-        Match                        kube.*
+        Match                        infra.logs
         bucket                       cutty-x-infra-log
         region                       ap-northeast-2
         total_file_size              1M
         upload_timeout               1m
         use_put_object               On
-        # 폴더 구조화 없이 날짜별로만 저장 (기존 유지)
-        s3_key_format                /k3s-logs/%Y/%m/%d/$TAG[4].log
+        s3_key_format                /ingress/%Y/%m/%d/%H/$TAG[1]-$UUID.log
+
+    # 유저 앱 로그 → 기존 컨벤션 유지
+    [OUTPUT]
+        Name                         s3
+        Match                        app.logs
+        bucket                       cutty-x-infra-log
+        region                       ap-northeast-2
+        total_file_size              1M
+        upload_timeout               1m
+        use_put_object               On
+        s3_key_format                /k3s-logs/%Y/%m/%d/%H/$kubernetes['pod_name']-$UUID.log
 
   # [설정 5] 파서 설정
   parsers.conf: |
