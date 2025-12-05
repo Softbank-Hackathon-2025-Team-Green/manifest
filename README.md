@@ -1,4 +1,4 @@
-<h1 align="center">Manifest README</h1>
+# Manifest README
 
 <details open>
 <summary>🇰🇷 한국어</summary>
