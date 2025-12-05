@@ -80,11 +80,11 @@ data:
         Exclude             $kubernetes['namespace_name'] kube-system
 
   filter-knative.conf: |
-    # $kubernetes['labels']['serving.knative.dev/service'] 이 레이블이 존재하지 않는 로그는 모두 버립니다.
-    [FILTER]  
+    # serving.knative.dev/service 레이블이 존재하는 로그만 남김
+    [FILTER]
         Name              grep
         Match             kube.*
-        Exclude           $kubernetes['labels']['serving.knative.dev/service'] ^$
+        Regex             kubernetes_labels_serving_knative_dev/service .
 
   # [설정 4] S3 전송 (Output)
   output-s3.conf: |
