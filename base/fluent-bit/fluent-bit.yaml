@@ -117,7 +117,7 @@ data:
         total_file_size              1M
         upload_timeout               1m
         use_put_object               On
-        s3_key_format                /ingress/%Y/%m/%d/%H/$TAG[1]-$UUID.log
+        s3_key_format                /ingress/%Y/%m/%d/$TAG[1]-$UUID.log
 
     # 유저 앱 로그 → 기존 컨벤션 유지
     [OUTPUT]
@@ -128,7 +128,7 @@ data:
         total_file_size              1M
         upload_timeout               1m
         use_put_object               On
-        s3_key_format                /k3s-logs/%Y/%m/%d/%H/$kubernetes['pod_name']-$UUID.log
+        s3_key_format                /k3s-logs/%Y/%m/%d/$kubernetes['pod_name']-$UUID.log
 
   # [설정 5] 파서 설정
   parsers.conf: |
