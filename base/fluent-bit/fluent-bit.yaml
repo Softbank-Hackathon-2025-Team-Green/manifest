@@ -44,6 +44,7 @@ data:
 
     @INCLUDE input-kubernetes.conf
     @INCLUDE filter-kubernetes.conf
+    @INCLUDE filter-knative.conf 
     @INCLUDE output-s3.conf
 
   # [설정 2] 로그 수집 (Input)
@@ -77,6 +78,13 @@ data:
         Name                grep
         Match               kube.*
         Exclude             $kubernetes['namespace_name'] kube-system
+
+  filter-knative.conf: |
+    # $kubernetes['labels']['serving.knative.dev/service'] 이 레이블이 존재하지 않는 로그는 모두 버립니다.
+    [FILTER]  
+        Name              grep
+        Match             kube.*
+        Exclude           $kubernetes['labels']['serving.knative.dev/service'] ^$
 
   # [설정 4] S3 전송 (Output)
   output-s3.conf: |
