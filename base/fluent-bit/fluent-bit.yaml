@@ -40,7 +40,7 @@ data:
         Log_Level     info
         Daemon        Off
         Parsers_File  parsers.conf
-
+    
     @INCLUDE input-kubernetes.conf
     @INCLUDE filter-kubernetes.conf
     @INCLUDE filter-rewrite-tag.conf
@@ -94,10 +94,10 @@ data:
         Emitter_Name        app_rewriter
 
     # 4. [수정됨] grep은 flatten된 키 사용: kubernetes_pod_name
-    [FILTER]
-        Name                grep
-        Match               infra.logs
-        Regex               kubernetes_pod_name (ingress-nginx-controller|3scale-kourier-gateway)
+    # [FILTER]
+    #     Name                grep
+    #     Match               infra.logs
+    #     Regex               kubernetes_pod_name (ingress-nginx-controller|3scale-kourier-gateway)
 
     # 5. [수정됨] 레이블 키의 특수문자(. /)는 _로 변환됨
     #    serving.knative.dev/service -> serving_knative_dev_service
