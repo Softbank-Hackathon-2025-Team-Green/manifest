@@ -139,7 +139,7 @@ data:
         
         # [Hive Partitioning 구조 완성]
         # $TAG[1]은 'fn.1585bc...' 에서 점(.) 뒤의 값인 function_id를 의미합니다.
-        s3_key_format             /function_logs/function_id=$TAG[1]/year=%Y/month=%m/day=%d/$UUID.json
+        s3_key_format             /function_logs/function_id=$TAG[1]/%Y/%m/%d/$UUID.json
         
         # 평탄화된 JSON 그대로 저장
         json_date_key             timestamp
