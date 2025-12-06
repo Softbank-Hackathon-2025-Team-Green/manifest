@@ -194,3 +194,12 @@ spec:
         - name: config
           configMap:
             name: fluent-bit-config
+        - name: k3s-logs
+          hostPath:
+            path: /var/lib/rancher/k3s/agent/containerd/
+        - name: runlog
+          hostPath:
+            path: /run/log
+        - name: config
+          configMap:
+            name: fluent-bit-config
