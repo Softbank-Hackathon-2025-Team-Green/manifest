@@ -106,9 +106,9 @@ data:
     #    Match               app.logs
     #    Regex               kubernetes_labels_serving_knative_dev_service .
 
-  # [수정 3] s3_key_format에서 $kubernetes 문법 제거 - $TAG 사용
+  # [수정 3] s3_key_format - Pod 이름 포함
   output-s3.conf: |
-    # 인프라 로그 저장
+    # 인프라 로그 저장 (Pod 이름 포함)
     [OUTPUT]
         Name                         s3
         Match                        infra.logs
@@ -117,9 +117,9 @@ data:
         total_file_size              1M
         upload_timeout               1m
         use_put_object               On
-        s3_key_format                /infra/%Y/%m/%d/%H%M%S-$UUID.log
+        s3_key_format                /infra/%Y/%m/%d/$kubernetes['pod_name']-%H%M%S-$UUID.log
 
-    # 유저 앱 로그 저장
+    # 유저 앱 로그 저장 (Pod 이름 포함)
     [OUTPUT]
         Name                         s3
         Match                        app.logs
@@ -128,7 +128,7 @@ data:
         total_file_size              1M
         upload_timeout               1m
         use_put_object               On
-        s3_key_format                /k3s-logs/%Y/%m/%d/%H%M%S-$UUID.log
+        s3_key_format                /k3s-logs/%Y/%m/%d/$kubernetes['pod_name']-%H%M%S-$UUID.log
 
   parsers.conf: |
     [PARSER]
