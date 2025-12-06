@@ -34,18 +34,20 @@ metadata:
   labels:
     k8s-app: fluent-bit
 data:
+  # [설정 1] 메인 설정
   fluent-bit.conf: |
     [SERVICE]
         Flush         1
         Log_Level     info
         Daemon        Off
         Parsers_File  parsers.conf
-    
+
     @INCLUDE input-kubernetes.conf
     @INCLUDE filter-kubernetes.conf
-    @INCLUDE filter-rewrite-tag.conf
+    @INCLUDE filter-rewrite.conf    
     @INCLUDE output-s3.conf
 
+  # [설정 2] 로그 수집
   input-kubernetes.conf: |
     [INPUT]
         Name              tail
@@ -57,7 +59,7 @@ data:
         Skip_Long_Lines   On
         Refresh_Interval  10
 
-  # [수정 1] 백틱 오타 제거
+  # [설정 3] 메타데이터 부착
   filter-kubernetes.conf: |
     [FILTER]
         Name                kubernetes
@@ -70,76 +72,46 @@ data:
         K8S-Logging.Parser  On
         K8S-Logging.Exclude Off
 
-  # [수정 2] grep 플러그인 문법 수정 - flatten된 키 이름 사용
-  filter-rewrite-tag.conf: |
-    # 1. 인프라 로그 분리 (ingress-nginx 네임스페이스)
+  # [설정 4] ★ 중요: 태그를 다시 써서(Rewrite) 경로 분기
+  # ingress-nginx -> 태그를 'infra.파드이름'으로 변경
+  # user-functions -> 태그를 'app.파드이름'으로 변경
+  filter-rewrite.conf: |
     [FILTER]
-        Name                rewrite_tag
-        Match               kube.*
-        Rule                $kubernetes['namespace_name'] ^ingress-nginx$ infra.logs false
-        Emitter_Name        ingress_rewriter
-
-    # 2. 인프라 로그 분리 (Knative Gateway - knative-serving 네임스페이스)
-    [FILTER]
-        Name                rewrite_tag
-        Match               kube.*
-        Rule                $kubernetes['namespace_name'] ^knative-serving$ infra.logs false
-        Emitter_Name        kourier_rewriter
-
-    # 3. 유저 앱 로그 분리 (user-functions 네임스페이스)
-    [FILTER]
-        Name                rewrite_tag
-        Match               kube.*
-        Rule                $kubernetes['namespace_name'] ^user-functions$ app.logs false
-        Emitter_Name        app_rewriter
-
-    # 4. Pod 이름을 최상위 필드로 복사 (S3 output에서 사용하기 위해)
-    [FILTER]
-        Name                modify
-        Match               infra.logs
-        Copy                kubernetes.pod_name pod_name
+        Name                  rewrite_tag
+        Match                 kube.*
+        Rule                  $kubernetes['namespace_name'] ^(ingress-nginx)$ infra.$kubernetes['pod_name'] false
+        Emitter_Name          infra_stream
 
     [FILTER]
-        Name                modify
-        Match               app.logs
-        Copy                kubernetes.pod_name pod_name
+        Name                  rewrite_tag
+        Match                 kube.*
+        Rule                  $kubernetes['namespace_name'] ^(user-functions)$ app.$kubernetes['pod_name'] false
+        Emitter_Name          app_stream
 
-    # 4. [수정됨] grep은 flatten된 키 사용: kubernetes_pod_name
-    # [FILTER]
-    #     Name                grep
-    #     Match               infra.logs
-    #     Regex               kubernetes_pod_name (ingress-nginx-controller|3scale-kourier-gateway)
-
-    # 5. [수정됨] 레이블 키의 특수문자(. /)는 _로 변환됨
-    #    serving.knative.dev/service -> serving_knative_dev_service
-    #[FILTER]
-    #    Name                grep
-    #    Match               app.logs
-    #    Regex               kubernetes_labels_serving_knative_dev_service .
-
-  # [수정 3] s3_key_format - Pod 이름 포함
+  # [설정 5] S3 저장 (분기된 태그별로 다른 경로 저장)
   output-s3.conf: |
-    # 인프라 로그 저장 (Pod 이름 포함)
+    # 1. 인프라 로그 (infra.* 태그 수신) -> /infra/... 저장
     [OUTPUT]
-        Name                         s3
-        Match                        infra.logs
-        bucket                       cutty-x-infra-log
-        region                       ap-northeast-2
-        total_file_size              1M
-        upload_timeout               1m
-        use_put_object               On
-        s3_key_format                /infra/%Y/%m/%d/$pod_name-%H%M%S-$UUID.log
+        Name                 s3
+        Match                infra.*
+        bucket               cutty-x-infra-log
+        region               ap-northeast-2
+        total_file_size      1M
+        upload_timeout       1m
+        use_put_object       On
+        # $TAG[1]은 위에서 만든 파드이름이 됩니다.
+        s3_key_format        /infra/%Y/%m/%d/$TAG[1].log
 
-    # 유저 앱 로그 저장 (Pod 이름 포함)
+    # 2. 유저 앱 로그 (app.* 태그 수신) -> /k3s-logs/... 저장
     [OUTPUT]
-        Name                         s3
-        Match                        app.logs
-        bucket                       cutty-x-infra-log
-        region                       ap-northeast-2
-        total_file_size              1M
-        upload_timeout               1m
-        use_put_object               On
-        s3_key_format                /k3s-logs/%Y/%m/%d/$pod_name-%H%M%S-$UUID.log
+        Name                 s3
+        Match                app.*
+        bucket               cutty-x-infra-log
+        region               ap-northeast-2
+        total_file_size      1M
+        upload_timeout       1m
+        use_put_object       On
+        s3_key_format        /k3s-logs/%Y/%m/%d/$TAG[1].log
 
   parsers.conf: |
     [PARSER]
