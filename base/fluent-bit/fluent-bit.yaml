@@ -34,7 +34,6 @@ metadata:
   labels:
     k8s-app: fluent-bit
 data:
-  # [설정 1] Fluent Bit 메인 설정
   fluent-bit.conf: |
     [SERVICE]
         Flush         1
@@ -47,7 +46,6 @@ data:
     @INCLUDE filter-rewrite-tag.conf
     @INCLUDE output-s3.conf
 
-  # [설정 2] 로그 수집 (Input)
   input-kubernetes.conf: |
     [INPUT]
         Name              tail
@@ -59,7 +57,7 @@ data:
         Skip_Long_Lines   On
         Refresh_Interval  10
 
-  # [설정 3] 메타데이터 부착 (Filter)
+  # [수정 1] 백틱 오타 제거
   filter-kubernetes.conf: |
     [FILTER]
         Name                kubernetes
@@ -70,15 +68,14 @@ data:
         Merge_Log           On
         Keep_Log            Off
         K8S-Logging.Parser  On
-        K8S-Logging.Exclude Off`````
+        K8S-Logging.Exclude Off
 
-  # [설정 4] Rewrite Tag & Routing (핵심 수정 구간)
+  # [수정 2] grep 플러그인 문법 수정 - flatten된 키 이름 사용
   filter-rewrite-tag.conf: |
     # 1. 인프라 로그 분리 (ingress-nginx 네임스페이스)
     [FILTER]
         Name                rewrite_tag
         Match               kube.*
-        # 네임스페이스가 ingress-nginx이면 infra.logs 태그로 변경
         Rule                $kubernetes['namespace_name'] ^ingress-nginx$ infra.logs false
         Emitter_Name        ingress_rewriter
 
@@ -96,22 +93,20 @@ data:
         Rule                $kubernetes['namespace_name'] ^user-functions$ app.logs false
         Emitter_Name        app_rewriter
 
-    # 4. [수정됨] 인프라 로그 중 특정 파드만 남기기 (키 접근 문법 수정)
+    # 4. [수정됨] grep은 flatten된 키 사용: kubernetes_pod_name
     [FILTER]
         Name                grep
         Match               infra.logs
-        # kubernetes_pod_name (X) -> $kubernetes['pod_name'] (O)
-        Regex               $kubernetes['pod_name'] (ingress-nginx-controller|3scale-kourier-gateway)
+        Regex               kubernetes_pod_name (ingress-nginx-controller|3scale-kourier-gateway)
 
-    # 5. [수정됨] 앱 로그 중 Knative Service만 남기기 (키 접근 문법 수정)
+    # 5. [수정됨] 레이블 키의 특수문자(. /)는 _로 변환됨
+    #    serving.knative.dev/service -> serving_knative_dev_service
     [FILTER]
         Name                grep
         Match               app.logs
-        # kubernetes_labels_... (X) -> $kubernetes['labels']['serving.knative.dev/service'] (O)
-        # 레이블 키에 슬래시(/)나 점(.)이 있으면 괄호 표기법이 안전합니다.
-        Regex               $kubernetes['labels']['serving.knative.dev/service'] .
+        Regex               kubernetes_labels_serving_knative_dev_service .
 
-  # [설정 5] S3 전송 (Output)
+  # [수정 3] s3_key_format에서 $kubernetes 문법 제거 - $TAG 사용
   output-s3.conf: |
     # 인프라 로그 저장
     [OUTPUT]
@@ -122,8 +117,7 @@ data:
         total_file_size              1M
         upload_timeout               1m
         use_put_object               On
-        # $TAG[1] 대신 명확한 파드 이름 사용 권장
-        s3_key_format                /ingress/%Y/%m/%d/$kubernetes['pod_name']-$UUID.log
+        s3_key_format                /infra/%Y/%m/%d/%H%M%S-$UUID.log
 
     # 유저 앱 로그 저장
     [OUTPUT]
@@ -134,10 +128,8 @@ data:
         total_file_size              1M
         upload_timeout               1m
         use_put_object               On
-        # 여기도 파드 이름으로 명확하게 지정
-        s3_key_format                /k3s-logs/%Y/%m/%d/$kubernetes['pod_name']-$UUID.log
+        s3_key_format                /app-logs/%Y/%m/%d/%H%M%S-$UUID.log
 
-  # [설정 6] 파서 설정
   parsers.conf: |
     [PARSER]
         Name cri
@@ -171,6 +163,7 @@ spec:
         - name: fluent-bit
           image: fluent/fluent-bit:3.2.2
           imagePullPolicy: IfNotPresent
+          # [수정 4] 중복 마운트 제거
           volumeMounts:
             - name: varlog
               mountPath: /var/log
@@ -182,11 +175,10 @@ spec:
             - name: runlog
               mountPath: /run/log
               readOnly: true
-            - name: config
-              mountPath: /fluent-bit/etc/
           env:
             - name: AWS_REGION
               value: "ap-northeast-2"
+      # [수정 4] 중복 볼륨 제거
       volumes:
         - name: varlog
           hostPath:
@@ -200,6 +192,3 @@ spec:
         - name: runlog
           hostPath:
             path: /run/log
-        - name: config
-          configMap:
-            name: fluent-bit-config
