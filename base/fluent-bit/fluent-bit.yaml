@@ -45,6 +45,7 @@ data:
     @INCLUDE input-kubernetes.conf
     @INCLUDE filter-kubernetes.conf
     @INCLUDE output-s3.conf
+    @INCLUDE filter-knative.conf
 
   # [설정 2] 로그 수집 (Input)
   input-kubernetes.conf: |
@@ -79,11 +80,11 @@ data:
         Regex               kubernetes_namespace_name user-functions
 
   filter-knative.conf: |
-    # serving.knative.dev/service 레이블이 존재하는 로그만 남김 이렇게 Knative 서빙 로그만 수집합니다.
-    [FILTER]
-        Name              grep
-        Match             kube.*
-        Regex             kubernetes_labels_serving.knative.dev/service .
+    # # serving.knative.dev/service 레이블이 존재하는 로그만 남김 이렇게 Knative 서빙 로그만 수집합니다.
+    # [FILTER]
+    #     Name              grep
+    #     Match             kube.*
+    #     Regex             kubernetes_labels_serving.knative.dev/service .
         
   # [설정 4] S3 전송 (Output)
   output-s3.conf: |
