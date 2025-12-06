@@ -34,7 +34,7 @@ metadata:
   labels:
     k8s-app: fluent-bit
 data:
-  # [설정 1] 메인 설정
+  # [설정 1] Fluent Bit 메인 설정
   fluent-bit.conf: |
     [SERVICE]
         Flush         1
@@ -44,10 +44,9 @@ data:
 
     @INCLUDE input-kubernetes.conf
     @INCLUDE filter-kubernetes.conf
-    @INCLUDE filter-rewrite.conf
     @INCLUDE output-s3.conf
 
-  # [설정 2] 로그 수집
+  # [설정 2] 로그 수집 (Input)
   input-kubernetes.conf: |
     [INPUT]
         Name              tail
@@ -59,7 +58,8 @@ data:
         Skip_Long_Lines   On
         Refresh_Interval  10
 
-  # [설정 3] 메타데이터 부착
+  # [설정 3] 메타데이터 부착 및 필터링 (Filter)
+  # ★ 수정됨: kube-system 제외 로직 추가
   filter-kubernetes.conf: |
     [FILTER]
         Name                kubernetes
@@ -72,47 +72,26 @@ data:
         K8S-Logging.Parser  On
         K8S-Logging.Exclude Off
 
-  # [설정 4] ★ 중요: 태그를 다시 써서(Rewrite) 경로 분기
-  # ingress-nginx -> 태그를 'infra.파드이름'으로 변경
-  # user-functions -> 태그를 'app.파드이름'으로 변경
-  filter-rewrite.conf: |
+    # [추가된 필터] kube-system 네임스페이스 로그 버리기
     [FILTER]
-        Name                  rewrite_tag
-        Match                 kube.*
-        Rule                  $kubernetes['namespace_name'] ^(ingress-nginx)$ infra.$kubernetes['pod_name'] false
-        Emitter_Name          infra_stream
+        Name                grep
+        Match               kube.*
+        Exclude             $kubernetes['namespace_name'] kube-system
 
-    [FILTER]
-        Name                  rewrite_tag
-        Match                 kube.*
-        Rule                  $kubernetes['namespace_name'] ^(user-functions)$ app.$kubernetes['pod_name'] false
-        Emitter_Name          app_stream
-
-  # [설정 5] S3 저장 (분기된 태그별로 다른 경로 저장)
+  # [설정 4] S3 전송 (Output)
   output-s3.conf: |
-    # 1. 인프라 로그 (infra.* 태그 수신) -> /infra/... 저장
     [OUTPUT]
-        Name                 s3
-        Match                infra.*
-        bucket               cutty-x-infra-log
-        region               ap-northeast-2
-        total_file_size      1M
-        upload_timeout       1m
-        use_put_object       On
-        # $TAG[1]은 위에서 만든 파드이름이 됩니다.
-        s3_key_format        /infra/%Y/%m/%d/$TAG[1].log
+        Name                         s3
+        Match                        kube.*
+        bucket                       cutty-x-infra-log
+        region                       ap-northeast-2
+        total_file_size              1M
+        upload_timeout               1m
+        use_put_object               On
+        # 폴더 구조화 없이 날짜별로만 저장 (기존 유지)
+        s3_key_format                /k3s-logs/%Y/%m/%d/$TAG[4].log
 
-    # 2. 유저 앱 로그 (app.* 태그 수신) -> /k3s-logs/... 저장
-    [OUTPUT]
-        Name                 s3
-        Match                app.*
-        bucket               cutty-x-infra-log
-        region               ap-northeast-2
-        total_file_size      1M
-        upload_timeout       1m
-        use_put_object       On
-        s3_key_format        /k3s-logs/%Y/%m/%d/$TAG[1].log
-
+  # [설정 5] 파서 설정
   parsers.conf: |
     [PARSER]
         Name cri
@@ -146,22 +125,14 @@ spec:
         - name: fluent-bit
           image: fluent/fluent-bit:3.2.2
           imagePullPolicy: IfNotPresent
-          # [수정 4] 중복 마운트 제거
           volumeMounts:
             - name: varlog
               mountPath: /var/log
             - name: config
               mountPath: /fluent-bit/etc/
-            - name: k3s-logs
-              mountPath: /var/lib/rancher/k3s/agent/containerd/
-              readOnly: true
-            - name: runlog
-              mountPath: /run/log
-              readOnly: true
           env:
             - name: AWS_REGION
               value: "ap-northeast-2"
-      # [수정 4] 중복 볼륨 제거
       volumes:
         - name: varlog
           hostPath:
@@ -169,9 +140,3 @@ spec:
         - name: config
           configMap:
             name: fluent-bit-config
-        - name: k3s-logs
-          hostPath:
-            path: /var/lib/rancher/k3s/agent/containerd/
-        - name: runlog
-          hostPath:
-            path: /run/log
