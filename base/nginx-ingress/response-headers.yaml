@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: response-headers
+  namespace: ingress-nginx
+data:
+  # Response에 X-Request-ID 헤더 추가
+  X-Request-ID: "$req_id"

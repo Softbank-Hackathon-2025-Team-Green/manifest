@@ -43,8 +43,11 @@ data:
       }
     }
 
-  # X-Request-ID를 upstream으로 전달
+  # X-Request-ID를 upstream으로 전달 (Request)
   proxy-set-headers: "ingress-nginx/custom-headers"
+
+  # X-Request-ID를 Response 헤더에 추가
+  add-headers: "ingress-nginx/response-headers"
 
   # CORS 설정
   # enable-cors: "true"
