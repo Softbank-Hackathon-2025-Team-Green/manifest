@@ -87,11 +87,11 @@ data:
         Emitter_Name        kourier_rewriter
 
     # 3. 유저 앱 로그 분리 (user-functions 네임스페이스)
-    # [FILTER]
-    #     Name                rewrite_tag
-    #     Match               kube.*
-    #     Rule                $kubernetes['namespace_name'] ^user-functions$ app.logs false
-    #     Emitter_Name        app_rewriter
+     [FILTER]
+         Name                rewrite_tag
+         Match               kube.*
+         Rule                $kubernetes['namespace_name'] ^user-functions$ app.logs false
+         Emitter_Name        app_rewriter
 
     # 4. [수정됨] grep은 flatten된 키 사용: kubernetes_pod_name
     # [FILTER]
@@ -101,10 +101,10 @@ data:
 
     # 5. [수정됨] 레이블 키의 특수문자(. /)는 _로 변환됨
     #    serving.knative.dev/service -> serving_knative_dev_service
-    [FILTER]
-        Name                grep
-        Match               app.logs
-        Regex               kubernetes_labels_serving_knative_dev_service .
+    #[FILTER]
+    #    Name                grep
+    #    Match               app.logs
+    #    Regex               kubernetes_labels_serving_knative_dev_service .
 
   # [수정 3] s3_key_format에서 $kubernetes 문법 제거 - $TAG 사용
   output-s3.conf: |
