@@ -93,6 +93,17 @@ data:
         Rule                $kubernetes['namespace_name'] ^user-functions$ app.logs false
         Emitter_Name        app_rewriter
 
+    # 4. Pod 이름을 최상위 필드로 복사 (S3 output에서 사용하기 위해)
+    [FILTER]
+        Name                modify
+        Match               infra.logs
+        Copy                kubernetes.pod_name pod_name
+
+    [FILTER]
+        Name                modify
+        Match               app.logs
+        Copy                kubernetes.pod_name pod_name
+
     # 4. [수정됨] grep은 flatten된 키 사용: kubernetes_pod_name
     # [FILTER]
     #     Name                grep
@@ -117,7 +128,7 @@ data:
         total_file_size              1M
         upload_timeout               1m
         use_put_object               On
-        s3_key_format                /infra/%Y/%m/%d/$kubernetes['pod_name']-%H%M%S-$UUID.log
+        s3_key_format                /infra/%Y/%m/%d/$pod_name-%H%M%S-$UUID.log
 
     # 유저 앱 로그 저장 (Pod 이름 포함)
     [OUTPUT]
@@ -128,7 +139,7 @@ data:
         total_file_size              1M
         upload_timeout               1m
         use_put_object               On
-        s3_key_format                /k3s-logs/%Y/%m/%d/$kubernetes['pod_name']-%H%M%S-$UUID.log
+        s3_key_format                /k3s-logs/%Y/%m/%d/$pod_name-%H%M%S-$UUID.log
 
   parsers.conf: |
     [PARSER]
