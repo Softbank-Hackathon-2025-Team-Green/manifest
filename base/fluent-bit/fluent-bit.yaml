@@ -87,11 +87,11 @@ data:
         Emitter_Name        kourier_rewriter
 
     # 3. 유저 앱 로그 분리 (user-functions 네임스페이스)
-     [FILTER]
-         Name                rewrite_tag
-         Match               kube.*
-         Rule                $kubernetes['namespace_name'] ^user-functions$ app.logs false
-         Emitter_Name        app_rewriter
+    [FILTER]
+        Name                rewrite_tag
+        Match               kube.*
+        Rule                $kubernetes['namespace_name'] ^user-functions$ app.logs false
+        Emitter_Name        app_rewriter
 
     # 4. [수정됨] grep은 flatten된 키 사용: kubernetes_pod_name
     # [FILTER]
