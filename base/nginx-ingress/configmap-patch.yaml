@@ -4,37 +4,43 @@ metadata:
   name: ingress-nginx-controller
   namespace: ingress-nginx
 data:
-  # X-Request-ID 기반 추적을 위한 JSON 로그 포맷
+  # X-Request-ID 기반 추적을 위한 JSON 로그 포맷 (Request + Response)
   log-format-upstream: >-
     {
       "time": "$time_iso8601",
       "x_request_id": "$req_id",
-      "remote_addr": "$remote_addr",
-      "x_forwarded_for": "$http_x_forwarded_for",
-      "request_id": "$req_id",
-      "remote_user": "$remote_user",
-      "method": "$request_method",
-      "uri": "$uri",
-      "request_uri": "$request_uri",
-      "request": "$request",
-      "query_string": "$query_string",
-      "protocol": "$server_protocol",
-      "status": $status,
-      "bytes_sent": $bytes_sent,
-      "body_bytes_sent": $body_bytes_sent,
-      "referer": "$http_referer",
-      "user_agent": "$http_user_agent",
-      "request_length": $request_length,
-      "request_time": $request_time,
-      "upstream_addr": "$upstream_addr",
-      "upstream_response_time": "$upstream_response_time",
-      "upstream_response_length": "$upstream_response_length",
-      "upstream_status": "$upstream_status",
-      "host": "$host",
-      "namespace": "$namespace",
-      "ingress_name": "$ingress_name",
-      "service_name": "$service_name",
-      "service_port": "$service_port"
+      "request": {
+        "method": "$request_method",
+        "uri": "$uri",
+        "request_uri": "$request_uri",
+        "query_string": "$query_string",
+        "protocol": "$server_protocol",
+        "host": "$host",
+        "remote_addr": "$remote_addr",
+        "x_forwarded_for": "$http_x_forwarded_for",
+        "remote_user": "$remote_user",
+        "user_agent": "$http_user_agent",
+        "referer": "$http_referer",
+        "request_length": $request_length,
+        "request_time": $request_time
+      },
+      "response": {
+        "status": $status,
+        "bytes_sent": $bytes_sent,
+        "body_bytes_sent": $body_bytes_sent,
+        "content_type": "$sent_http_content_type",
+        "upstream_addr": "$upstream_addr",
+        "upstream_status": "$upstream_status",
+        "upstream_response_time": "$upstream_response_time",
+        "upstream_response_length": "$upstream_response_length",
+        "upstream_cache_status": "$upstream_cache_status"
+      },
+      "routing": {
+        "namespace": "$namespace",
+        "ingress_name": "$ingress_name",
+        "service_name": "$service_name",
+        "service_port": "$service_port"
+      }
     }
 
   # X-Request-ID를 upstream으로 전달
