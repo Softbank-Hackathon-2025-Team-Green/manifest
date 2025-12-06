@@ -72,43 +72,48 @@ data:
         K8S-Logging.Parser  On
         K8S-Logging.Exclude Off
 
-  # [설정 4] Rewrite Tag - 네임스페이스 기반 로그 분리
+  # [설정 4] Rewrite Tag & Routing (핵심 수정 구간)
   filter-rewrite-tag.conf: |
-    # 인프라 로그: ingress-nginx와 kourier만
+    # 1. 인프라 로그 분리 (ingress-nginx 네임스페이스)
     [FILTER]
         Name                rewrite_tag
         Match               kube.*
+        # 네임스페이스가 ingress-nginx이면 infra.logs 태그로 변경
         Rule                $kubernetes['namespace_name'] ^ingress-nginx$ infra.logs false
         Emitter_Name        ingress_rewriter
 
+    # 2. 인프라 로그 분리 (Knative Gateway - knative-serving 네임스페이스)
     [FILTER]
         Name                rewrite_tag
         Match               kube.*
         Rule                $kubernetes['namespace_name'] ^knative-serving$ infra.logs false
         Emitter_Name        kourier_rewriter
 
-    # infra.logs 중에서 ingress-nginx-controller 또는 3scale-kourier-gateway만 필터링
-    [FILTER]
-        Name                grep
-        Match               infra.logs
-        Regex               kubernetes_pod_name (ingress-nginx-controller|3scale-kourier-gateway)
-
-    # 유저 앱 로그: user-functions 네임스페이스의 Knative Service만
+    # 3. 유저 앱 로그 분리 (user-functions 네임스페이스)
     [FILTER]
         Name                rewrite_tag
         Match               kube.*
         Rule                $kubernetes['namespace_name'] ^user-functions$ app.logs false
         Emitter_Name        app_rewriter
 
-    # app.logs 중에서 serving.knative.dev/service 레이블이 있는 것만 필터링
+    # 4. [수정됨] 인프라 로그 중 특정 파드만 남기기 (키 접근 문법 수정)
+    [FILTER]
+        Name                grep
+        Match               infra.logs
+        # kubernetes_pod_name (X) -> $kubernetes['pod_name'] (O)
+        Regex               $kubernetes['pod_name'] (ingress-nginx-controller|3scale-kourier-gateway)
+
+    # 5. [수정됨] 앱 로그 중 Knative Service만 남기기 (키 접근 문법 수정)
     [FILTER]
         Name                grep
         Match               app.logs
-        Regex               kubernetes_labels_serving.knative.dev/service .
+        # kubernetes_labels_... (X) -> $kubernetes['labels']['serving.knative.dev/service'] (O)
+        # 레이블 키에 슬래시(/)나 점(.)이 있으면 괄호 표기법이 안전합니다.
+        Regex               $kubernetes['labels']['serving.knative.dev/service'] .
 
   # [설정 5] S3 전송 (Output)
   output-s3.conf: |
-    # 인프라 로그 → cutty-x-infra-log/ingress/ 폴더
+    # 인프라 로그 저장
     [OUTPUT]
         Name                         s3
         Match                        infra.logs
@@ -117,9 +122,10 @@ data:
         total_file_size              1M
         upload_timeout               1m
         use_put_object               On
-        s3_key_format                /ingress/%Y/%m/%d/$TAG[1]-$UUID.log
+        # $TAG[1] 대신 명확한 파드 이름 사용 권장
+        s3_key_format                /ingress/%Y/%m/%d/$kubernetes['pod_name']-$UUID.log
 
-    # 유저 앱 로그 → 기존 컨벤션 유지
+    # 유저 앱 로그 저장
     [OUTPUT]
         Name                         s3
         Match                        app.logs
@@ -128,9 +134,10 @@ data:
         total_file_size              1M
         upload_timeout               1m
         use_put_object               On
+        # 여기도 파드 이름으로 명확하게 지정
         s3_key_format                /k3s-logs/%Y/%m/%d/$kubernetes['pod_name']-$UUID.log
 
-  # [설정 5] 파서 설정
+  # [설정 6] 파서 설정
   parsers.conf: |
     [PARSER]
         Name cri
