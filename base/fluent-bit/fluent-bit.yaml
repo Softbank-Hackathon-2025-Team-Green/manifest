@@ -34,7 +34,6 @@ metadata:
   labels:
     k8s-app: fluent-bit
 data:
-  # [설정 1] Fluent Bit 메인 설정
   fluent-bit.conf: |
     [SERVICE]
         Flush         1
@@ -43,25 +42,24 @@ data:
         Parsers_File  parsers.conf
 
     @INCLUDE input-kubernetes.conf
-    @INCLUDE filter-kubernetes.conf
+    @INCLUDE filter-flatten.conf
     @INCLUDE output-s3.conf
-    @INCLUDE filter-knative.conf
 
-  # [설정 2] 로그 수집 (Input)
   input-kubernetes.conf: |
     [INPUT]
         Name              tail
         Tag               kube.*
-        Path              /var/log/containers/*.log
+        # user-functions 네임스페이스의 로그만 읽습니다 (효율성 극대화)
+        Path              /var/log/containers/*_user-functions_*.log
         Parser            cri
         DB                /var/log/flb_kube.db
         Mem_Buf_Limit     5MB
         Skip_Long_Lines   On
         Refresh_Interval  10
 
-  # [설정 3] 메타데이터 부착 및 필터링 (Filter)
-  # ★ 수정됨: kube-system 제외 로직 추가
-  filter-kubernetes.conf: |
+  # [핵심] 평탄화 및 동적 라우팅 설정
+  filter-flatten.conf: |
+    # 1. Kubernetes 메타데이터 부착
     [FILTER]
         Name                kubernetes
         Match               kube.*
@@ -73,33 +71,80 @@ data:
         K8S-Logging.Parser  On
         K8S-Logging.Exclude Off
 
-    # user-functions 네임스페이스 로그만 수집
+    # 2. 구조 평탄화 (Lift): kubernetes 객체를 최상위로 올림
+    # { "kubernetes": { "labels": ... } }  ->  { "k8s_labels": ... }
     [FILTER]
-        Name                grep
-        Match               kube.*
-        Regex               kubernetes_namespace_name user-functions
+        Name          nest
+        Match         kube.*
+        Operation     lift
+        Nested_under  kubernetes
+        Add_prefix    k8s_
 
-  filter-knative.conf: |
-    # # serving.knative.dev/service 레이블이 존재하는 로그만 남김 이렇게 Knative 서빙 로그만 수집합니다.
-    # [FILTER]
-    #     Name              grep
-    #     Match             kube.*
-    #     Regex             kubernetes_labels_serving.knative.dev/service .
+    # 3. 레이블 평탄화 (Lift): labels 객체를 최상위로 올림
+    # { "k8s_labels": { "functionId": "abc" } }  ->  { "label_functionId": "abc" }
+    [FILTER]
+        Name          nest
+        Match         kube.*
+        Operation     lift
+        Nested_under  k8s_labels
+        Add_prefix    label_
+
+    # 4. 필드 정리 (Rename & Remove): Athena 스키마에 맞춰 이름 변경 및 쓰레기 제거
+    [FILTER]
+        Name          modify
+        Match         kube.*
+        # 이름 예쁘게 변경 (CamelCase -> Snake_Case)
+        Rename    label_functionId                        function_id
+        Rename    label_userId                            user_id
+        Rename    label_serving.knative.dev/revision      revision
+        Rename    label_serving.knative.dev/service       service_name
+        Rename    k8s_pod_name                            pod_name
         
-  # [설정 4] S3 전송 (Output)
-  output-s3.conf: |
-    [OUTPUT]
-        Name                         s3
-        Match                        kube.*
-        bucket                       cutty-x-infra-log
-        region                       ap-northeast-2
-        total_file_size              1M
-        upload_timeout               1m
-        use_put_object               On
-        # 폴더 구조화 없이 날짜별로만 저장 (기존 유지)
-        s3_key_format                /k3s-logs/%Y/%m/%d/$TAG[4].log
+        # 비용 절감을 위해 불필요한 메타데이터 삭제
+        Remove    k8s_pod_id
+        Remove    k8s_docker_id
+        Remove    k8s_container_hash
+        Remove    k8s_container_image
+        Remove    k8s_annotations
+        Remove    k8s_host
+        Remove    label_app
+        Remove    label_pod-template-hash
+        Remove    label_serving.knative.dev/configuration
+        Remove    label_serving.knative.dev/configurationGeneration
+        Remove    label_serving.knative.dev/configurationUID
+        Remove    label_serving.knative.dev/revisionUID
+        Remove    label_serving.knative.dev/serviceUID
+        Remove    stream
+        Remove    logtag
 
-  # [설정 5] 파서 설정
+    # 5. [Dynamic Routing] Tag Rewriting (가장 중요!)
+    # function_id 필드 값을 읽어서 Tag를 'fn.<function_id>' 형태로 바꿔버립니다.
+    # 이렇게 해야 Output 단계에서 $TAG 변수를 쓸 수 있습니다.
+    [FILTER]
+        Name          rewrite_tag
+        Match         kube.*
+        Rule          $function_id ^(.*)$ fn.$function_id false
+        Emitter_Name  re_emitted
+
+  output-s3.conf: |
+    # Rewritten Tag(fn.*)를 잡아서 S3로 보냅니다.
+    [OUTPUT]
+        Name                      s3
+        Match                     fn.*
+        bucket                    cutty-x-infra-log
+        region                    ap-northeast-2
+        total_file_size           1M
+        upload_timeout            1m
+        use_put_object            On
+        
+        # [Hive Partitioning 구조 완성]
+        # $TAG[1]은 'fn.1585bc...' 에서 점(.) 뒤의 값인 function_id를 의미합니다.
+        s3_key_format             /function_logs/function_id=$TAG[1]/year=%Y/month=%m/day=%d/$UUID.json
+        
+        # 평탄화된 JSON 그대로 저장
+        json_date_key             timestamp
+        json_date_format          iso8601
+
   parsers.conf: |
     [PARSER]
         Name cri
@@ -141,6 +186,10 @@ spec:
           env:
             - name: AWS_REGION
               value: "ap-northeast-2"
+            # - name: AWS_ACCESS_KEY_ID
+            #   value: "YOUR_KEY"
+            # - name: AWS_SECRET_ACCESS_KEY
+            #   value: "YOUR_SECRET"
       volumes:
         - name: varlog
           hostPath:
