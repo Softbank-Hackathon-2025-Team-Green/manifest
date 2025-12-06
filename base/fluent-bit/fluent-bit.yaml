@@ -44,7 +44,7 @@ data:
 
     @INCLUDE input-kubernetes.conf
     @INCLUDE filter-kubernetes.conf
-    @INCLUDE filter-rewrite.conf    
+    @INCLUDE filter-rewrite.conf
     @INCLUDE output-s3.conf
 
   # [설정 2] 로그 수집
