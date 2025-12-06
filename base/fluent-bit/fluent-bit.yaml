@@ -72,12 +72,19 @@ data:
         K8S-Logging.Parser  On
         K8S-Logging.Exclude Off
 
-    # [추가된 필터] kube-system 네임스페이스 로그 버리기
+    # user-functions 네임스페이스 로그만 수집
     [FILTER]
         Name                grep
         Match               kube.*
-        Exclude             $kubernetes['namespace_name'] kube-system
+        Regex               kubernetes_namespace_name user-functions
 
+  filter-knative.conf: |
+    # serving.knative.dev/service 레이블이 존재하는 로그만 남김 이렇게 Knative 서빙 로그만 수집합니다.
+    [FILTER]
+        Name              grep
+        Match             kube.*
+        Regex             kubernetes_labels_serving.knative.dev/service .
+        
   # [설정 4] S3 전송 (Output)
   output-s3.conf: |
     [OUTPUT]
